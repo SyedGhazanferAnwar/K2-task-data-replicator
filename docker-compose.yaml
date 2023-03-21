@@ -35,7 +35,6 @@ services:
    
 networks:
   task_net:
-    name: task_net
     driver: bridge
 
 volumes:

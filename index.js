@@ -1,5 +1,5 @@
 const {coreLogic} = require("./coreLogic");
-const { app } = require("./init");
+const { app,SERVICE_URL, } = require("./init");
 const { namespaceWrapper } = require("./namespaceWrapper");
 
 
@@ -29,6 +29,11 @@ async function setup() {
       coreLogic.auditDistribution(m.roundNumber);
     }
   });
+
+  // Code for the data replication among the nodes
+  setInterval(() => {
+    console.log(SERVICE_URL)
+  }, 1000);
 
 
   /* GUIDE TO CALLS K2 FUNCTIONS MANUALLY
