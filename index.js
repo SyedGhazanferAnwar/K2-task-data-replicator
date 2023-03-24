@@ -48,6 +48,8 @@ async function setup() {
       return e.data.url;
     });
     console.log(nodeUrlList);
+    let allLinktrees = await namespaceWrapper.storeGet('linktrees');
+    allLinktrees = JSON.parse(allLinktrees || '[]');
     for (let url of nodeUrlList) {
       console.log(url);
       const res = await axios.get(`${url}/task/${TASK_ID}/get-all-linktrees`);
@@ -55,7 +57,33 @@ async function setup() {
         console.error('ERROR', res.status);
         continue;
       }
-      const data = res.data;
+      const payload = res.data;
+      /*
+      1. Verify the signature
+      2. Only update your db if incoming timestamp > your timestamp or you don't have the data
+      */
+      if (!payload || payload.length == 0) continue;
+      for (let linkTreePayload in payload) {
+        const isVerified = nacl.sign.detached.verify(
+          new TextEncoder().encode(JSON.stringify(linkTreePayload.data)),
+          bs58.decode(linkTreePayload.signature),
+          bs58.decode(publicKeyBase58)
+        );
+        if (!isVerified) {
+          console.warn(`${url} is not able to verify the signature`);
+          continue;
+        }
+        let localExistingLinktree = allLinktrees.find((e) => {
+          e.uuid == linkTreePayload.data.uuid;
+        });
+        if (localExistingLinktree) {
+          if (localExistingLinktree.data.timestamp < linkTreePayload.data.timestamp) {
+            allLinktrees.push(linkTreePayload);
+          }
+        } else {
+          allLinktrees.push(linkTreePayload);
+        }
+      }
     }
   }, 20000);
 
@@ -125,8 +153,14 @@ if (app) {
     const linktree = req.body.linktree;
     // TODO: validate the linktree structure here
     /*
+      1. Must have the following structure
+      2. Signature must be verified by the publicKey
+    */
+   
+    /*
       {
         data:{
+          uuid:jhasjdbjhguyt23764vhyt
           linktree:linktree,
           timestamp:76576465,
         },
@@ -134,7 +168,8 @@ if (app) {
         signature:"hjgasdjasbhmnbjhasgdkjsahjdkhgsakjdhgsajhyg"
       }
     */
-    // const msg = new TextEncoder().encode(JSON.stringify(payload));
+    // Use the code below to sign the data payload
+    // const msg = new TextEncoder().encode(JSON.stringify(data));
     // const signature = nacl.sign.detached(msg, secretKey);
 
     let allLinktrees = await namespaceWrapper.storeGet('linktrees');
@@ -146,6 +181,6 @@ if (app) {
   app.get('/get-all-linktrees', async (req, res) => {
     let allLinktrees = await namespaceWrapper.storeGet('linktrees');
     allLinktrees = JSON.parse(allLinktrees || '[]');
-    return res.status(200).send({data: allLinktrees});
+    return res.status(200).send(allLinktrees);
   });
 }
