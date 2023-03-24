@@ -1,5 +1,6 @@
+const { default: axios } = require("axios");
 const {coreLogic} = require("./coreLogic");
-const { app,SERVICE_URL, } = require("./init");
+const { app, SERVICE_URL, TASK_ID } = require("./init");
 const { namespaceWrapper } = require("./namespaceWrapper");
 
 
@@ -31,8 +32,29 @@ async function setup() {
   });
 
   // Code for the data replication among the nodes
-  setInterval(() => {
-    console.log(SERVICE_URL)
+  setInterval(async() => {
+    try {
+      const nodesUrl=`${SERVICE_URL}/nodes/${TASK_ID}`
+      const res = await axios.get(nodesUrl)
+      if(res.status!=200){
+        console.error("Error",res.status)
+        return
+      }
+    } catch (error) {
+      console.error("Some went wrong:",error)
+    }
+    if(!res.data){
+      console.error("res has no valid urls")
+      return
+    }
+    let nodeUrlList=res.data.map((e)=>{
+      return e.data.url
+    })
+    for(let url of nodeUrlList){
+      console.log(url)
+      axios.get(url+"")
+    }
+    console.log(nodeUrlList)
   }, 1000);
 
 
