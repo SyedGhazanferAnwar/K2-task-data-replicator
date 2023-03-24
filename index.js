@@ -1,62 +1,63 @@
-const { default: axios } = require("axios");
-const {coreLogic} = require("./coreLogic");
-const { app, SERVICE_URL, TASK_ID } = require("./init");
-const { namespaceWrapper } = require("./namespaceWrapper");
-
+const {default: axios} = require('axios');
+const {coreLogic} = require('./coreLogic');
+const {app, SERVICE_URL, TASK_ID} = require('./init');
+const {namespaceWrapper} = require('./namespaceWrapper');
+const nacl = require('tweetnacl');
 
 async function setup() {
-  console.log("setup function called");
+  console.log('setup function called');
   // Run default setup
   await namespaceWrapper.defaultTaskSetup();
-  process.on("message", (m) => {
-    console.log("CHILD got message:", m);
-    if (m.functionCall == "submitPayload") {
-      console.log("submitPayload called");
+  process.on('message', (m) => {
+    console.log('CHILD got message:', m);
+    if (m.functionCall == 'submitPayload') {
+      console.log('submitPayload called');
       coreLogic.submitTask(m.roundNumber);
-    } else if (m.functionCall == "auditPayload") {
-      console.log("auditPayload called");
+    } else if (m.functionCall == 'auditPayload') {
+      console.log('auditPayload called');
       coreLogic.auditTask(m.roundNumber);
-    }
-    else if(m.functionCall == "executeTask") {
-      console.log("executeTask called");
+    } else if (m.functionCall == 'executeTask') {
+      console.log('executeTask called');
       coreLogic.task();
-    }
-    else if(m.functionCall == "generateAndSubmitDistributionList") {
-      console.log("generateAndSubmitDistributionList called");
+    } else if (m.functionCall == 'generateAndSubmitDistributionList') {
+      console.log('generateAndSubmitDistributionList called');
       coreLogic.submitDistributionList(m.roundNumber);
-    }
-    else if(m.functionCall == "distributionListAudit") {
-      console.log("distributionListAudit called");
+    } else if (m.functionCall == 'distributionListAudit') {
+      console.log('distributionListAudit called');
       coreLogic.auditDistribution(m.roundNumber);
     }
   });
 
   // Code for the data replication among the nodes
-  setInterval(async() => {
+  setInterval(async () => {
     try {
-      const nodesUrl=`${SERVICE_URL}/nodes/${TASK_ID}`
-      const res = await axios.get(nodesUrl)
-      if(res.status!=200){
-        console.error("Error",res.status)
-        return
+      const nodesUrl = `${SERVICE_URL}/nodes/${TASK_ID}`;
+      const res = await axios.get(nodesUrl);
+      if (res.status != 200) {
+        console.error('Error', res.status);
+        return;
       }
     } catch (error) {
-      console.error("Some went wrong:",error)
+      console.error('Some went wrong:', error);
     }
-    if(!res.data){
-      console.error("res has no valid urls")
-      return
+    if (!res.data) {
+      console.error('res has no valid urls');
+      return;
     }
-    let nodeUrlList=res.data.map((e)=>{
-      return e.data.url
-    })
-    for(let url of nodeUrlList){
-      console.log(url)
-      axios.get(url+"")
+    let nodeUrlList = res.data.map((e) => {
+      return e.data.url;
+    });
+    console.log(nodeUrlList);
+    for (let url of nodeUrlList) {
+      console.log(url);
+      const res = await axios.get(`${url}/task/${TASK_ID}/get-all-linktrees`);
+      if (res.status != 200) {
+        console.error('ERROR', res.status);
+        continue;
+      }
+      const data = res.data;
     }
-    console.log(nodeUrlList)
-  }, 1000);
-
+  }, 20000);
 
   /* GUIDE TO CALLS K2 FUNCTIONS MANUALLY
 
@@ -70,14 +71,13 @@ async function setup() {
 
   */
 
-  // Get the task state 
+  // Get the task state
   //console.log(await namespaceWrapper.getTaskState());
 
-  //GET ROUND 
+  //GET ROUND
 
   // const round = await namespaceWrapper.getRound();
   // console.log("ROUND", round);
-
 
   // Call to do the work for the task
 
@@ -85,10 +85,9 @@ async function setup() {
 
   // Submission to K2 (Preferablly you should submit the cid received from IPFS)
 
+  //await coreLogic.submitTask(round - 1);
 
-   //await coreLogic.submitTask(round - 1);
-
-  // Audit submissions 
+  // Audit submissions
 
   //await coreLogic.auditTask(round - 1);
 
@@ -104,12 +103,6 @@ async function setup() {
 
   // const responsePayout = await namespaceWrapper.payoutTrigger();
   // console.log("RESPONSE TRIGGER", responsePayout);
-
-
-
-
-
-
 }
 
 setup();
@@ -119,13 +112,40 @@ if (app) {
   //  For Example
   //  app.post('/accept-cid', async (req, res) => {})
 
-  // Sample API that return your task state 
+  // Sample API that return your task state
 
   app.get('/taskState', async (req, res) => {
     const state = await namespaceWrapper.getTaskState();
-   console.log("TASK STATE", state);
+    console.log('TASK STATE', state);
 
-  res.status(200).json({ taskState: state })
-  })
+    res.status(200).json({taskState: state});
+  });
+
+  app.post('/register-linktree', async (req, res) => {
+    const linktree = req.body.linktree;
+    // TODO: validate the linktree structure here
+    /*
+      {
+        data:{
+          linktree:linktree,
+          timestamp:76576465,
+        },
+        publicKey:"FnQm11NXJxPSjza3fuhuQ6Cu4fKNqdaPkVSRyLSWf14d",
+        signature:"hjgasdjasbhmnbjhasgdkjsahjdkhgsakjdhgsajhyg"
+      }
+    */
+    // const msg = new TextEncoder().encode(JSON.stringify(payload));
+    // const signature = nacl.sign.detached(msg, secretKey);
+
+    let allLinktrees = await namespaceWrapper.storeGet('linktrees');
+    allLinktrees = JSON.parse(allLinktrees || '[]');
+    allLinktrees.push(linktree);
+    await namespaceWrapper.storeSet('linktrees', allLinktrees);
+    return res.status(200).send({message: 'Linktree registered successfully'});
+  });
+  app.get('/get-all-linktrees', async (req, res) => {
+    let allLinktrees = await namespaceWrapper.storeGet('linktrees');
+    allLinktrees = JSON.parse(allLinktrees || '[]');
+    return res.status(200).send({data: allLinktrees});
+  });
 }
-
