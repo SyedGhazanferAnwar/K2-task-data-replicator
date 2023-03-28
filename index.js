@@ -65,7 +65,7 @@ async function setup() {
           const isVerified = nacl.sign.detached.verify(
             new TextEncoder().encode(JSON.stringify(linkTreePayload.data)),
             bs58.decode(linkTreePayload.signature),
-            bs58.decode(publicKeyBase58)
+            bs58.decode(linkTreePayload.publicKey)
           );
           if (!isVerified) {
             console.warn(`${url} is not able to verify the signature`);

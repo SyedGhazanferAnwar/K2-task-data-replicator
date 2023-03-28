@@ -1,4 +1,6 @@
 const express = require('express');
+const bodyParser = require('body-parser');
+
 const TASK_NAME = process.argv[2];
 const TASK_ID = process.argv[3];
 const EXPRESS_PORT = process.argv[4];
@@ -10,6 +12,7 @@ const SERVICE_URL = process.argv[9];
 const STAKE = Number(process.argv[10]);
 
 const app = express();
+app.use(bodyParser.json());
 
 console.log('SETTING UP EXPRESS', NODE_MODE);
 app.get('/', (req, res) => {
