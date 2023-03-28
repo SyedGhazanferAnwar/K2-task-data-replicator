@@ -37,53 +37,54 @@ async function setup() {
         console.error('Error', res.status);
         return;
       }
-    } catch (error) {
-      console.error('Some went wrong:', error);
-    }
-    if (!res.data) {
-      console.error('res has no valid urls');
-      return;
-    }
-    let nodeUrlList = res.data.map((e) => {
-      return e.data.url;
-    });
-    console.log(nodeUrlList);
-    let allLinktrees = await namespaceWrapper.storeGet('linktrees');
-    allLinktrees = JSON.parse(allLinktrees || '[]');
-    for (let url of nodeUrlList) {
-      console.log(url);
-      const res = await axios.get(`${url}/task/${TASK_ID}/get-all-linktrees`);
-      if (res.status != 200) {
-        console.error('ERROR', res.status);
-        continue;
+
+      if (!res.data) {
+        console.error('res has no valid urls');
+        return;
       }
-      const payload = res.data;
-      /*
+      let nodeUrlList = res.data.map((e) => {
+        return e.data.url;
+      });
+      console.log(nodeUrlList);
+      let allLinktrees = await namespaceWrapper.storeGet('linktrees');
+      allLinktrees = JSON.parse(allLinktrees || '[]');
+      for (let url of nodeUrlList) {
+        console.log(url);
+        const res = await axios.get(`${url}/task/${TASK_ID}/get-all-linktrees`);
+        if (res.status != 200) {
+          console.error('ERROR', res.status);
+          continue;
+        }
+        const payload = res.data;
+        /*
       1. Verify the signature
       2. Only update your db if incoming timestamp > your timestamp or you don't have the data
       */
-      if (!payload || payload.length == 0) continue;
-      for (let linkTreePayload in payload) {
-        const isVerified = nacl.sign.detached.verify(
-          new TextEncoder().encode(JSON.stringify(linkTreePayload.data)),
-          bs58.decode(linkTreePayload.signature),
-          bs58.decode(publicKeyBase58)
-        );
-        if (!isVerified) {
-          console.warn(`${url} is not able to verify the signature`);
-          continue;
-        }
-        let localExistingLinktree = allLinktrees.find((e) => {
-          e.uuid == linkTreePayload.data.uuid;
-        });
-        if (localExistingLinktree) {
-          if (localExistingLinktree.data.timestamp < linkTreePayload.data.timestamp) {
+        if (!payload || payload.length == 0) continue;
+        for (let linkTreePayload in payload) {
+          const isVerified = nacl.sign.detached.verify(
+            new TextEncoder().encode(JSON.stringify(linkTreePayload.data)),
+            bs58.decode(linkTreePayload.signature),
+            bs58.decode(publicKeyBase58)
+          );
+          if (!isVerified) {
+            console.warn(`${url} is not able to verify the signature`);
+            continue;
+          }
+          let localExistingLinktree = allLinktrees.find((e) => {
+            e.uuid == linkTreePayload.data.uuid;
+          });
+          if (localExistingLinktree) {
+            if (localExistingLinktree.data.timestamp < linkTreePayload.data.timestamp) {
+              allLinktrees.push(linkTreePayload);
+            }
+          } else {
             allLinktrees.push(linkTreePayload);
           }
-        } else {
-          allLinktrees.push(linkTreePayload);
         }
       }
+    } catch (error) {
+      console.error('Some went wrong:', error);
     }
   }, 20000);
 
@@ -156,7 +157,7 @@ if (app) {
       1. Must have the following structure
       2. Signature must be verified by the publicKey
     */
-   
+
     /*
       {
         data:{
