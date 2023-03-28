@@ -53,10 +53,10 @@ try {
     publicKey: bs58.encode(publicKey),
   };
   const msg = new TextEncoder().encode(JSON.stringify(payload.data));
-  payload.signature = nacl.sign.detached(msg, secretKey);
+  payload.signature = bs58.encode(nacl.sign.detached(msg, secretKey));
 
   axios
-    .post('http://localhost:8080/task/Aymg9fr1qCSbKSSvud4jG74MHrRGw8EpkFVQo6rFGSQf/register-linktree', payload)
+    .post('http://localhost:8080/task/Aymg9fr1qCSbKSSvud4jG74MHrRGw8EpkFVQo6rFGSQf/register-linktree', {payload})
     .then((e) => {
       if (e.status != 200) {
         console.log(e);

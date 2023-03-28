@@ -151,7 +151,7 @@ if (app) {
   });
 
   app.post('/register-linktree', async (req, res) => {
-    const linktree = req.body.linktree;
+    const linktree = req.body.payload;
     // TODO: validate the linktree structure here
     /*
       1. Must have the following structure
@@ -176,7 +176,7 @@ if (app) {
     let allLinktrees = await namespaceWrapper.storeGet('linktrees');
     allLinktrees = JSON.parse(allLinktrees || '[]');
     allLinktrees.push(linktree);
-    await namespaceWrapper.storeSet('linktrees', allLinktrees);
+    await namespaceWrapper.storeSet('linktrees', JSON.stringify(allLinktrees));
     return res.status(200).send({message: 'Linktree registered successfully'});
   });
   app.get('/get-all-linktrees', async (req, res) => {
